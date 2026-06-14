@@ -79,7 +79,7 @@ export function Editor({
       keymap.of([...defaultKeymap, ...historyKeymap]),
       EditorView.theme({
         '&': { height: '100%', fontSize: settings.editorFontSize },
-        '.cm-scroller': { fontFamily, overflow: 'auto' },
+        '.cm-scroller': { fontFamily, fontSize: settings.editorFontSize, overflow: 'auto' },
         '.cm-content': { padding: '16px 0' },
         '.cm-gutters': { minWidth: '40px' },
       }),
@@ -187,10 +187,16 @@ export function Editor({
         <input
           type="text"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value
+            setTitle(val)
+            onTitleChange(val)
+          }}
           onBlur={() => {
-            if (title.trim() && title !== document.title) {
-              onTitleChange(title.trim())
+            const trimmed = title.trim()
+            if (trimmed && trimmed !== title) {
+              setTitle(trimmed)
+              onTitleChange(trimmed)
             }
           }}
           onKeyDown={(e) => {
@@ -202,7 +208,11 @@ export function Editor({
           placeholder="Document title"
         />
       </div>
-      <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden" />
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 overflow-hidden"
+        style={{ fontSize: settings.editorFontSize }}
+      />
     </div>
   )
 }

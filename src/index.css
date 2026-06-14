@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 html {
   height: 100%;
 }
@@ -64,6 +66,16 @@ body {
 
 .dark .setting-select {
   border-color: rgb(82 82 91);
+  background: rgb(24 24 27);
+  color: rgb(244 244 245);
+}
+
+.setting-select option {
+  background: white;
+  color: rgb(24 24 27);
+}
+
+.dark .setting-select option {
   background: rgb(24 24 27);
   color: rgb(244 244 245);
 }

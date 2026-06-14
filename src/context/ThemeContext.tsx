@@ -105,10 +105,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const resolved = resolveTheme(settings.theme)
-    setResolvedTheme(resolved)
-    document.documentElement.classList.remove('light', 'dark')
-    document.documentElement.classList.add(resolved)
+    setResolvedTheme(resolveTheme(settings.theme))
   }, [settings.theme])
 
   useEffect(() => {
@@ -118,6 +115,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [settings.theme])
+
+  useEffect(() => {
+    document.documentElement.classList.remove('light', 'dark')
+    document.documentElement.classList.add(resolvedTheme)
+  }, [resolvedTheme])
 
   const updateSetting = useCallback(
     async <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {

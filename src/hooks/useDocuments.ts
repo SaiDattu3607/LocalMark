@@ -27,7 +27,17 @@ function isNewerInMemory(existing: Document, saved: Document): boolean {
 }
 
 export function useDocuments({ onError }: UseDocumentsOptions = {}) {
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, _setDocuments] = useState<Document[]>([])
+  const documentsRef = useRef<Document[]>([])
+
+  const setDocuments = useCallback((val: Document[] | ((prev: Document[]) => Document[])) => {
+    _setDocuments((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val
+      documentsRef.current = next
+      return next
+    })
+  }, [])
+
   const [activeId, setActiveId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -133,30 +143,30 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
     (updates: Partial<Pick<Document, 'title' | 'body' | 'starred'>>, external = false) => {
       if (!activeId) return
 
-      let updated: Document | null = null
-      setDocuments((prev) => {
-        const current = prev.find((d) => d.id === activeId)
-        if (!current) return prev
+      const current = documentsRef.current.find((d) => d.id === activeId)
+      if (!current) return
 
-        updated = {
-          ...current,
-          ...updates,
-          updatedAt: Date.now(),
-        }
-        if (updates.body !== undefined && updates.title === undefined) {
-          const autoTitle = extractTitleFromBody(updates.body, current.title)
-          if (current.title === 'Untitled' || !current.title) {
-            updated.title = autoTitle
-          }
-        }
-        return prev.map((d) => (d.id === updated!.id ? updated! : d))
-      })
+      const updated: Document = {
+        ...current,
+        ...updates,
+        updatedAt: Date.now(),
+      }
 
-      if (updated) {
-        debouncedSave(updated)
-        if (external && updates.body !== undefined) {
-          setExternalBodyVersion((v) => v + 1)
+      if (updates.body !== undefined && updates.title === undefined) {
+        const autoTitle = extractTitleFromBody(updates.body, current.title)
+        if (current.title === 'Untitled' || !current.title) {
+          updated.title = autoTitle
         }
+      }
+
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === updated.id ? updated : d))
+      )
+
+      debouncedSave(updated)
+
+      if (external && updates.body !== undefined) {
+        setExternalBodyVersion((v) => v + 1)
       }
     },
     [activeId, debouncedSave],
@@ -170,6 +180,7 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
     const pending = pendingDocRef.current
     if (pending) {
       await persistDocument(pending)
+      pendingDocRef.current = null
     } else if (activeDocument) {
       await persistDocument(activeDocument)
     }
@@ -177,27 +188,27 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
 
   const renameDocument = useCallback(
     async (id: string, title: string) => {
-      const doc = documents.find((d) => d.id === id)
+      const doc = documentsRef.current.find((d) => d.id === id)
       if (!doc) return
       const updated = { ...doc, title, updatedAt: Date.now() }
       await persistDocument(updated)
     },
-    [documents, persistDocument],
+    [persistDocument],
   )
 
   const toggleStar = useCallback(
     async (id: string) => {
-      const doc = documents.find((d) => d.id === id)
+      const doc = documentsRef.current.find((d) => d.id === id)
       if (!doc) return
       const updated = { ...doc, starred: !doc.starred, updatedAt: Date.now() }
       await persistDocument(updated)
     },
-    [documents, persistDocument],
+    [persistDocument],
   )
 
   const duplicateDocument = useCallback(
     async (id: string) => {
-      const doc = documents.find((d) => d.id === id)
+      const doc = documentsRef.current.find((d) => d.id === id)
       if (!doc) return
       const now = Date.now()
       const copy: Document = {
@@ -211,7 +222,7 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
       setDocuments((prev) => [copy, ...prev])
       setActiveId(copy.id)
     },
-    [documents],
+    [],
   )
 
   const removeDocument = useCallback(
@@ -234,7 +245,7 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
 
   const importDocuments = useCallback(
     async (imported: Document[]) => {
-      const merged = new Map(documents.map((d) => [d.id, d]))
+      const merged = new Map(documentsRef.current.map((d) => [d.id, d]))
       for (const doc of imported) {
         const existing = merged.get(doc.id)
         if (!existing || doc.updatedAt > existing.updatedAt) {
@@ -248,7 +259,7 @@ export function useDocuments({ onError }: UseDocumentsOptions = {}) {
       setDocuments(result)
       if (!activeId && result.length > 0) setActiveId(result[0].id)
     },
-    [documents, activeId],
+    [activeId],
   )
 
   const clearAllDocuments = useCallback(async () => {

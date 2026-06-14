@@ -20,10 +20,11 @@ export function Preview({ body, className = '' }: PreviewProps) {
   return (
     <div
       className={`h-full overflow-auto px-6 py-4 print-preview ${className}`}
-      style={{ fontSize: settings.previewFontSize, fontFamily }}
+      style={{ fontFamily }}
     >
       <article
         className="prose prose-zinc dark:prose-invert max-w-none"
+        style={{ fontSize: settings.previewFontSize }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
