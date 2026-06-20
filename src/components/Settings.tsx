@@ -115,10 +115,15 @@ export function Settings({
         kind: 'error',
         text: "This key isn't valid. Check for typos or contact support@racex.in",
       })
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'The license server timed out. Please try again.'
+          : `The license server blocked this app origin (${window.location.origin}). Add it to racex.in CORS and try again.`
+
       setLicenseMessage({
         kind: 'warning',
-        text: "Couldn't reach the server. Check your internet and try again.",
+        text: message,
       })
     } finally {
       window.clearTimeout(timeoutId)
