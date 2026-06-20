@@ -14,6 +14,17 @@ export interface SettingEntry {
   value: unknown
 }
 
+export interface AppState {
+  trialStartedAt: number
+  licensed: boolean
+  licenseKey: string | null
+  activatedAt: number | null
+  shownExpiryWarning: boolean
+}
+
+export const TRIAL_LENGTH_MS = 7 * 24 * 60 * 60 * 1000
+export const DAY_MS = 24 * 60 * 60 * 1000
+
 interface LocalMarkDB extends DBSchema {
   documents: {
     key: string
@@ -88,4 +99,44 @@ export async function getAllSettings(): Promise<Record<string, unknown>> {
   const db = await getDB()
   const entries = await db.getAll('settings')
   return Object.fromEntries(entries.map((e) => [e.key, e.value]))
+}
+
+export function createInitialAppState(now = Date.now()): AppState {
+  return {
+    trialStartedAt: now,
+    licensed: false,
+    licenseKey: null,
+    activatedAt: null,
+    shownExpiryWarning: false,
+  }
+}
+
+function isAppState(value: unknown): value is AppState {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<AppState>
+  return (
+    typeof candidate.trialStartedAt === 'number' &&
+    typeof candidate.licensed === 'boolean' &&
+    (typeof candidate.licenseKey === 'string' || candidate.licenseKey === null) &&
+    (typeof candidate.activatedAt === 'number' || candidate.activatedAt === null) &&
+    typeof candidate.shownExpiryWarning === 'boolean'
+  )
+}
+
+export async function getOrCreateAppState(): Promise<AppState> {
+  const existing = await getSetting<unknown>('appState')
+  if (isAppState(existing)) return existing
+
+  const appState = createInitialAppState()
+  await setSetting('appState', appState)
+  return appState
+}
+
+export async function updateAppState(
+  updates: Partial<AppState>,
+): Promise<AppState> {
+  const current = await getOrCreateAppState()
+  const next: AppState = { ...current, ...updates }
+  await setSetting('appState', next)
+  return next
 }

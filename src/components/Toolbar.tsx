@@ -3,6 +3,15 @@ import type { EditorHandle } from './Editor'
 import type { Document } from '../db'
 import type { SaveStatus } from '../hooks/useDocuments'
 
+type FormatCommand =
+  | 'bold'
+  | 'italic'
+  | 'heading'
+  | 'link'
+  | 'image'
+  | 'code'
+  | 'quote'
+
 interface ToolbarProps {
   editorRef: React.MutableRefObject<EditorHandle | null>
   activeDocument: Document | null
@@ -20,7 +29,22 @@ interface ToolbarProps {
   onPrint: () => void
   onImportMd: (file: File) => void
   onImportJson: (file: File) => void
+  readOnly?: boolean
 }
+
+const FORMAT_BUTTONS: {
+  label: string
+  title: string
+  command: FormatCommand
+}[] = [
+  { label: 'B', title: 'Bold (Ctrl+B)', command: 'bold' },
+  { label: 'I', title: 'Italic (Ctrl+I)', command: 'italic' },
+  { label: 'H', title: 'Heading', command: 'heading' },
+  { label: 'Link', title: 'Link', command: 'link' },
+  { label: 'Img', title: 'Image', command: 'image' },
+  { label: '</>', title: 'Code', command: 'code' },
+  { label: 'Quote', title: 'Quote', command: 'quote' },
+]
 
 export function Toolbar({
   editorRef,
@@ -38,32 +62,51 @@ export function Toolbar({
   onPrint,
   onImportMd,
   onImportJson,
+  readOnly = false,
 }: ToolbarProps) {
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const mdInputRef = useRef<HTMLInputElement>(null)
   const jsonInputRef = useRef<HTMLInputElement>(null)
 
-  const formatButtons = [
-    { label: 'B', title: 'Bold (Ctrl+B)', action: () => editorRef.current?.wrapSelection('**') },
-    { label: 'I', title: 'Italic (Ctrl+I)', action: () => editorRef.current?.wrapSelection('*') },
-    { label: 'H', title: 'Heading', action: () => editorRef.current?.insertAtCursor('\n## ') },
-    { label: '🔗', title: 'Link', action: () => editorRef.current?.wrapSelection('[', '](url)') },
-    { label: '🖼', title: 'Image', action: () => editorRef.current?.insertAtCursor('![alt](url)') },
-    { label: '</>', title: 'Code', action: () => editorRef.current?.wrapSelection('`') },
-    { label: '❝', title: 'Quote', action: () => editorRef.current?.insertAtCursor('\n> ') },
-  ]
+  const runFormatCommand = (command: FormatCommand) => {
+    if (readOnly) return
+    switch (command) {
+      case 'bold':
+        editorRef.current?.wrapSelection('**')
+        break
+      case 'italic':
+        editorRef.current?.wrapSelection('*')
+        break
+      case 'heading':
+        editorRef.current?.insertAtCursor('\n## ')
+        break
+      case 'link':
+        editorRef.current?.wrapSelection('[', '](url)')
+        break
+      case 'image':
+        editorRef.current?.insertAtCursor('![alt](url)')
+        break
+      case 'code':
+        editorRef.current?.wrapSelection('`')
+        break
+      case 'quote':
+        editorRef.current?.insertAtCursor('\n> ')
+        break
+    }
+  }
 
   return (
     <div className="flex items-center gap-1 px-3 py-2 border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 shrink-0">
       <div className="flex items-center gap-0.5 mr-2">
-        {formatButtons.map((btn) => (
+        {FORMAT_BUTTONS.map((btn) => (
           <button
             key={btn.title}
             type="button"
             title={btn.title}
-            onClick={btn.action}
-            className="w-8 h-8 flex items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-sm font-medium transition-colors"
+            onClick={() => runFormatCommand(btn.command)}
+            disabled={readOnly}
+            className="min-w-8 h-8 px-2 flex items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-sm font-medium transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
           >
             {btn.label}
           </button>
@@ -78,7 +121,7 @@ export function Toolbar({
           onClick={() => { setExportOpen(!exportOpen); setImportOpen(false) }}
           className="px-2 py-1 text-xs rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
         >
-          Export ▾
+          Export
         </button>
         {exportOpen && (
           <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-20 py-1">
@@ -96,7 +139,7 @@ export function Toolbar({
           onClick={() => { setImportOpen(!importOpen); setExportOpen(false) }}
           className="px-2 py-1 text-xs rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
         >
-          Import ▾
+          Import
         </button>
         {importOpen && (
           <div className="absolute top-full left-0 mt-1 w-52 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-20 py-1">
@@ -134,6 +177,11 @@ export function Toolbar({
       <span className="text-xs text-zinc-400 mr-2">
         {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : ''}
       </span>
+      {readOnly && (
+        <span className="text-xs font-medium text-red-600 dark:text-red-400 mr-2">
+          Read only
+        </span>
+      )}
 
       <button
         type="button"
@@ -157,7 +205,7 @@ export function Toolbar({
         onClick={onToggleAI}
         className={`px-2 py-1 text-xs rounded transition-colors ${showAI ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' : 'hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
       >
-        ✨ AI
+        AI
       </button>
 
       <button

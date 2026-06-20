@@ -17,6 +17,8 @@ interface SidebarProps {
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
   onToggleCollapse: () => void
+  canCreate: boolean
+  onOpenPrivacy: () => void
   onOpenSettings: () => void
 }
 
@@ -34,6 +36,8 @@ export function Sidebar({
   onDuplicate,
   onDelete,
   onToggleCollapse,
+  canCreate,
+  onOpenPrivacy,
   onOpenSettings,
 }: SidebarProps) {
   return (
@@ -56,6 +60,8 @@ export function Sidebar({
           onToggleStar={onToggleStar}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
+          canCreate={canCreate}
+          onOpenPrivacy={onOpenPrivacy}
           onOpenSettings={onOpenSettings}
         />
       </aside>
@@ -85,6 +91,8 @@ function SidebarContent({
   onToggleStar,
   onDuplicate,
   onDelete,
+  canCreate,
+  onOpenPrivacy,
   onOpenSettings,
 }: Omit<SidebarProps, 'collapsed' | 'onToggleCollapse' | 'documents'>) {
   return (
@@ -100,13 +108,15 @@ function SidebarContent({
           onChange={(e) => onSearchChange(e.target.value)}
           className="w-full px-2 py-1.5 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 outline-none focus:ring-1 focus:ring-blue-500"
         />
-        <button
-          type="button"
-          onClick={onNewDoc}
-          className="w-full mt-2 px-3 py-1.5 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-        >
-          + New Document
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={onNewDoc}
+            className="w-full mt-2 px-3 py-1.5 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            + New Document
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
@@ -122,6 +132,7 @@ function SidebarContent({
                 onToggleStar={onToggleStar}
                 onDuplicate={onDuplicate}
                 onDelete={onDelete}
+                canCreate={canCreate}
               />
             ))}
           </DocSection>
@@ -137,6 +148,7 @@ function SidebarContent({
               onToggleStar={onToggleStar}
               onDuplicate={onDuplicate}
               onDelete={onDelete}
+              canCreate={canCreate}
             />
           ))}
         </DocSection>
@@ -146,6 +158,13 @@ function SidebarContent({
       </div>
 
       <div className="p-3 border-t border-zinc-200 dark:border-zinc-700">
+        <button
+          type="button"
+          onClick={onOpenPrivacy}
+          className="flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors text-zinc-600 dark:text-zinc-400"
+        >
+          <span aria-hidden="true">&#128737;</span> Privacy
+        </button>
         <button
           type="button"
           onClick={onOpenSettings}
@@ -185,6 +204,7 @@ function DocItem({
   onToggleStar,
   onDuplicate,
   onDelete,
+  canCreate,
 }: {
   doc: Document
   active: boolean
@@ -193,6 +213,7 @@ function DocItem({
   onToggleStar: (id: string) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
+  canCreate: boolean
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -232,18 +253,24 @@ function DocItem({
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            {
-              label: 'Rename',
-              action: () => {
-                const name = prompt('Rename document:', doc.title)
-                if (name?.trim()) onRename(doc.id, name.trim())
-              },
-            },
+            ...(canCreate
+              ? [
+                  {
+                    label: 'Rename',
+                    action: () => {
+                      const name = prompt('Rename document:', doc.title)
+                      if (name?.trim()) onRename(doc.id, name.trim())
+                    },
+                  },
+                ]
+              : []),
             {
               label: doc.starred ? 'Unstar' : 'Star',
               action: () => onToggleStar(doc.id),
             },
-            { label: 'Duplicate', action: () => onDuplicate(doc.id) },
+            ...(canCreate
+              ? [{ label: 'Duplicate', action: () => onDuplicate(doc.id) }]
+              : []),
             {
               label: 'Delete',
               action: () => setConfirmDelete(true),

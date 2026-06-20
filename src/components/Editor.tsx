@@ -23,6 +23,7 @@ interface EditorProps {
   document: Document | null
   onChange: (body: string) => void
   onTitleChange: (title: string) => void
+  readOnly?: boolean
   editorRef?: React.MutableRefObject<EditorHandle | null>
   /** Increment to push external content (AI apply, etc.) into the editor */
   externalBodyVersion?: number
@@ -42,6 +43,7 @@ export function Editor({
   document,
   onChange,
   onTitleChange,
+  readOnly = false,
   editorRef,
   externalBodyVersion = 0,
   externalBody,
@@ -51,15 +53,22 @@ export function Editor({
   const onChangeRef = useRef(onChange)
   const docIdRef = useRef<string | null>(null)
   const localBodyRef = useRef('')
+  const readOnlyRef = useRef(readOnly)
   const lastExternalVersionRef = useRef(0)
   const { settings, resolvedTheme } = useSettings()
-  const [title, setTitle] = useState('')
-
-  onChangeRef.current = onChange
+  const [titleState, setTitleState] = useState<{
+    documentId: string | null
+    title: string
+  }>({ documentId: null, title: '' })
+  const title =
+    titleState.documentId === document?.id
+      ? titleState.title
+      : document?.title ?? ''
 
   useEffect(() => {
-    setTitle(document?.title ?? '')
-  }, [document?.id, document?.title])
+    onChangeRef.current = onChange
+    readOnlyRef.current = readOnly
+  }, [onChange, readOnly])
 
   useEffect(() => {
     if (!containerRef.current || !document) return
@@ -77,6 +86,8 @@ export function Editor({
       markdown(),
       EditorView.lineWrapping,
       keymap.of([...defaultKeymap, ...historyKeymap]),
+      EditorState.readOnly.of(readOnly),
+      EditorView.editable.of(!readOnly),
       EditorView.theme({
         '&': { height: '100%', fontSize: settings.editorFontSize },
         '.cm-scroller': { fontFamily, fontSize: settings.editorFontSize, overflow: 'auto' },
@@ -85,6 +96,7 @@ export function Editor({
       }),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
+          if (readOnlyRef.current) return
           const text = update.state.doc.toString()
           localBodyRef.current = text
           onChangeRef.current(text)
@@ -113,6 +125,7 @@ export function Editor({
     if (editorRef) {
       editorRef.current = {
         wrapSelection(before: string, after = before) {
+          if (readOnlyRef.current) return
           const v = viewRef.current
           if (!v) return
           const { from, to } = v.state.selection.main
@@ -126,6 +139,7 @@ export function Editor({
           v.focus()
         },
         insertAtCursor(text: string) {
+          if (readOnlyRef.current) return
           const v = viewRef.current
           if (!v) return
           const pos = v.state.selection.main.head
@@ -161,6 +175,7 @@ export function Editor({
     settings.editorFont,
     settings.editorFontSize,
     resolvedTheme,
+    readOnly,
   ])
 
   // Push external edits (AI apply) without syncing every React state update
@@ -187,15 +202,17 @@ export function Editor({
         <input
           type="text"
           value={title}
+          readOnly={readOnly}
           onChange={(e) => {
+            if (readOnly) return
             const val = e.target.value
-            setTitle(val)
+            setTitleState({ documentId: document.id, title: val })
             onTitleChange(val)
           }}
           onBlur={() => {
             const trimmed = title.trim()
             if (trimmed && trimmed !== title) {
-              setTitle(trimmed)
+              setTitleState({ documentId: document.id, title: trimmed })
               onTitleChange(trimmed)
             }
           }}
